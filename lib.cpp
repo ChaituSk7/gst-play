@@ -2,9 +2,7 @@
 #include <stdio.h>
 
 /* Send seek event to change rate */
-static void
-send_seek_event (CustomData * data)
-{
+static void send_seek_event (CustomData * data) {
   gint64 position;
   GstEvent *seek_event;
 
