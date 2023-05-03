@@ -1,14 +1,16 @@
+#ifndef HEADER_H
+#define HEADER_H
 #include <gst/gst.h>
-#include <stdio.h>
-#include <string>
-#include <stdlib.h>
 
-#define MAX_SIZE 1024
-
-typedef struct _CommandLineArgs {
-  int argc;
-  char *args[MAX_SIZE];
+typedef struct _CustomData {
+  GstElement *pipeline;
+  GstElement *video_sink;
   GMainLoop *loop;
-}CommandLineArgs;
+  gboolean playing;
+  gdouble rate;
+}CustomData;
 
-int tutorial_main (int, char *[]);
+
+extern void main_pipeline(char *);
+
+#endif
