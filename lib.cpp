@@ -11,7 +11,6 @@ static void send_seek_event (CustomData * data) {
     g_printerr ("Unable to retrieve current position.\n");
     return;
   }
-
   /* Create the seek event */
   if (data->rate > 0) {
     seek_event =
@@ -25,7 +24,7 @@ static void send_seek_event (CustomData * data) {
         (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET, 0,
         GST_SEEK_TYPE_SET, position);
   }
-  
+
   if (data->video_sink == NULL) {
     /* If we have not done so, obtain the sink through which we will send the seek events */
     g_object_get (data->pipeline, "video-sink", &data->video_sink, NULL);
@@ -38,9 +37,7 @@ static void send_seek_event (CustomData * data) {
 }
 
 
-static gboolean
-handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
-{
+static gboolean handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data) {
   gchar *str = NULL;
 
   if (g_io_channel_read_line (source, &str, NULL, NULL,
@@ -55,13 +52,13 @@ handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
           data->playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
       g_print ("Setting state to %s\n", data->playing ? "PLAYING" : "PAUSE");
       break;
-    case 's':
-      if (g_ascii_isupper (str[0])) {
-        data->rate *= 2.0;
-      } else {
-        data->rate /= 2.0;
-      }
+    case '+':
+      data->rate = data->rate + 0.10;
       send_seek_event (data);
+      break;
+    case '-':
+      data->rate = data->rate - 0.10;
+      send_seek_event(data);
       break;
     case 'd':
       data->rate *= -1.0;
@@ -69,21 +66,64 @@ handle_keyboard (GIOChannel * source, GIOCondition cond, CustomData * data)
       break;
     case 'k':
        g_print ("USAGE: Choose one of the following options, then press enter:\n"
-      " 'P'    : toggle between PAUSE and PLAY\n"
-      " 'S'    : increase playback speed, 's' to decrease playback speed\n"
-      " 'D'    : toggle playback direction\n"
-      " 'N'    : play next\n"
-      " 'k'    : show keyboard shortcuts\n"
-      " 'Q'    : quit\n");
+      "     p    : PAUSE/PLAY\n"
+      "     q    : quit\n" 
+      "     +    : increase playback rate\n"
+      "     -    : decrease playback rate\n"
+      "     l    : seek forward (10 sec)\n"
+      "     j    : seek backward (10 sec)\n"
+      "     d    : toggle playback direction\n"
+      "     n    : play next\n"
+      "     v    : increase volume\n"
+      "     u    : decrease volume\n"
+      "     0    : seek to begining\n"
+      "     k    : show keyboard shortcuts\n");
       break;
     case 'q':
       g_main_loop_quit (data->loop);
+      exit(0);
       break;
     case 'n':
       gst_element_set_state(data->pipeline, GST_STATE_PAUSED);
 	  	gst_event_new_seek (1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_SET, 0);
 	  	gst_element_set_state(data->pipeline, GST_STATE_NULL);
 	  	g_main_loop_quit(data->loop);
+      break;
+    case 'v':
+      data->volume += 1.0;
+      g_object_set(G_OBJECT(data->pipeline), "volume", data->volume, NULL);
+      g_print("volume %f\n", data->volume);
+      break;
+    case 'u':
+      data->volume -= 1.0;
+      g_object_set(G_OBJECT(data->pipeline), "volume", data->volume, NULL);
+      g_print("volume %f\n", data->volume);
+      break;
+    case '0':
+      gst_element_seek_simple(data->pipeline, GST_FORMAT_TIME,
+                      (GstSeekFlags)(GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH), 0);
+      break;
+    case 'l': {
+      gint64 position;
+      if (!gst_element_query_position (data->pipeline, GST_FORMAT_TIME, &position)) {
+        g_printerr ("Unable to retrieve current position.\n");
+        return FALSE;
+      }
+      gst_element_seek_simple(data->pipeline, GST_FORMAT_TIME,
+                      (GstSeekFlags)(GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH), (position + (10*GST_SECOND)));
+    }
+    break;
+    case 'j': {
+      gint64 position;
+      if (!gst_element_query_position (data->pipeline, GST_FORMAT_TIME, &position)) {
+        g_printerr ("Unable to retrieve current position.\n");
+        return FALSE;
+      }
+      if (position )
+      gst_element_seek_simple(data->pipeline, GST_FORMAT_TIME,
+                      (GstSeekFlags)(GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_FLUSH), 
+                      (position - (10*GST_SECOND)));
+      }
     default:
       break;
   }
@@ -119,7 +159,6 @@ static void callback_message(GstBus *bus, GstMessage *msg, CustomData *data) {
 		default:
 			break;
 	}
-	
 }
 
 void main_pipeline(char *file) {
@@ -152,17 +191,17 @@ void main_pipeline(char *file) {
 
   data.playing = TRUE;
   data.rate = 1.0;
+  data.volume = 1.0;
 
   #ifdef G_OS_WIN32
   io_stdin = g_io_channel_win32_new_fd (fileno (stdin));
   #else
     io_stdin = g_io_channel_unix_new (fileno (stdin));
   #endif
-    guint id = g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &data);
+    guint id = g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) (handle_keyboard), &data);
 
   data.loop = g_main_loop_new(NULL, FALSE);
  
-
   bus = gst_element_get_bus(data.pipeline);
   gst_bus_add_signal_watch(bus);
 

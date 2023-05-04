@@ -8,6 +8,7 @@ typedef struct _CustomData {
   GMainLoop *loop;
   gboolean playing;
   gdouble rate;
+  gdouble volume;
 }CustomData;
 
 
