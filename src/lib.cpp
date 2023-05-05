@@ -1,5 +1,5 @@
-#include "header.h"
 #include <stdio.h>
+#include "header.h"
 
 /* Send seek event to change rate */
 static void send_seek_event (CustomData * data) {
